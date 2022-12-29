@@ -1,12 +1,14 @@
 ## telegram_bot_registr
 
-**python version:** *3.9*
+**python version:** *3.9*   
 
-**venv:**
-*python3 -m venv venv*
-
+**venv:**   
+*python3 -m venv venv*  
 *source venv/bin/activate*
 
-**install:**   *pip install -r requirements.txt*
+**install:**    
+*pip install -r requirements.txt*
 
-**start:**   *python3 bot.py*
+**start:**  
+*python3 db/create_sql.py*  
+*python3 bot.py*
