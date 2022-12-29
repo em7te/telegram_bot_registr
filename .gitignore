@@ -1,0 +1,6 @@
+.idea
+__pychahe__/
+venv/
+developments/
+credlib.py
+db/sqlite3.db
