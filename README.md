@@ -10,5 +10,6 @@
 *pip install -r requirements.txt*
 
 **start:**  
+*добавить переменную API_TOKEN(токен бота) в bot.py, поместить в самое начало*
 *python3 db/create_sql.py*  
 *python3 bot.py*
