@@ -5,9 +5,7 @@ import aiogram.utils.markdown as md
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.utils import executor
-from aiogram.utils.callback_data import CallbackData
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters import Text
 from aiogram.types import ParseMode
 
 from credlib import API_TOKEN
@@ -25,11 +23,15 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+# Инициализация БД
 db = Database("db/sqlite3.db")
 
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
+    """
+    Старт бота
+    """
     if not db.user_exists(message.from_user.id):
         db.add_user(message.from_user.id)
         await bot.send_message(message.from_user.id, "Стартуем! 🚀", reply_markup=nav.user_menu_in)
@@ -38,11 +40,16 @@ async def start(message: types.Message):
             await bot.send_message(message.from_user.id, "Бот уже был запущен 🤖", reply_markup=nav.artist_menu_in)
         else:
             await bot.send_message(message.from_user.id, "Бот уже был запущен 🤖", reply_markup=nav.user_menu_in)
-# ************************************************************* /profile
 
 
+# ************************************************************* START /profile
 @dp.message_handler(commands=['profile'])
 async def profile(message: types.Message):
+    """
+    Обрабатывает кнопку `Profile`. Отдаёт личные данные.
+        Пользователю: id, create_date.
+        Художнику: id, nickname, create_date
+    """
     if message.message.chat.type == 'private':
         result = db.get_user(message.from_user.id)
         if [i for i in db.user_type(message.from_user.id)][0][0]:
@@ -51,14 +58,17 @@ async def profile(message: types.Message):
         else:
             text = f'Ваши учётные данные:\n\nid: {result[0][1]}\ndatetime sub: {result[0][4]}'
             await bot.send_message(message.from_user.id, text, reply_markup=nav.user_menu_in)
-# ************************************************************* end /profile
-# ************************************************************* /button_handler_sub
+# ************************************************************* END /profile
 
 
+# ************************************************************* START /button_handler_sub
 @dp.callback_query_handler(text_contains='btnConf')
 async def button_handler_sub(call: types.CallbackQuery):
     """
-    Точка входа в разговор
+    Обрабатывает кнопку `Subscribe`.
+        С её помощью пользователь может стать художником и брать заказы других пользователей.
+
+    Здесь точка входа в разговор
     """
     await asyncio.sleep(0.5)
     await FormSub.artist.set()
@@ -72,12 +82,11 @@ async def button_handler_sub(call: types.CallbackQuery):
                                    reply_markup=nav.conf_menu)
 
 
-# Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
 @dp.callback_query_handler(lambda call: call.data not in ["btnConfYes", "btnConfNo"],
                            state=FormSub.artist, text_contains='btnConf')
 async def sub_step_1(call: types.CallbackQuery):
     """
-    Проверяем ответ, должно быть либо `Yes`, либо `No`.
+    Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
     """
     return await call.message.reply("Неверный ответ, варианты: `Yes`, `No`.", reply_markup=nav.conf_menu)
 
@@ -98,12 +107,11 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
         await call.message.reply("Введите никнейм")
 
 
-# Проверяем формат nickname
 @dp.message_handler(lambda message: True in [i in message.text for i in "{}[]:;]/|\.,<>!@#$%^&*"],
                     state=FormSub.nickname)
 async def sub_step_3(message: types.Message):
     """
-    Если введён неверный формат
+    Проверяем формат `nickname`
     """
     text = message.reply_markup.inline_keyboard[1][0].text
     if not isinstance(text, str) and not text[0].isdigit():
@@ -115,16 +123,16 @@ async def sub_step_3(message: types.Message):
 
 @dp.message_handler(state=FormSub.nickname)
 async def last_step(message: types.Message, state: FSMContext):
+    """
+    После всех необходимых проверок и ответов пользователя записываем полученные данные в БД и завершаем разговор
+    """
     async with state.proxy() as data:
         text = message.text
         data['nickname'] = text
 
         # И отправить сообщение
         await bot.send_message(message.chat.id,
-                               md.text(
-                                   md.text('Отлично! Теперь Вы художник и можете выполнять заказы от пользователей!'),
-                                   sep='\n',
-                               ),
+                               'Отлично! Теперь Вы художник и можете выполнять заказы от пользователей!',
                                reply_markup=nav.artist_menu_in,
                                parse_mode=ParseMode.MARKDOWN)
         db.update_artist(data['artist'], message.from_user.id)
@@ -133,14 +141,17 @@ async def last_step(message: types.Message, state: FSMContext):
 
         # Закончить разговор
         await state.finish()
-# ************************************************************* end /button_handler_sub
-# ************************************************************* /button_handler_edit
+# ************************************************************* END /button_handler_sub
 
 
+# ************************************************************* START /button_handler_edit
 @dp.callback_query_handler(text_contains='btnConf')
 async def button_handler_edit(call: types.CallbackQuery):
     """
-    Точка входа в разговор
+    Обрабатывает кнопку `Edit profile`.
+    Меняет для художника его `nickname`
+
+    Здесь точка входа в разговор
     """
     await asyncio.sleep(0.5)
     await FormEdit.nickname.set()
@@ -152,12 +163,11 @@ async def button_handler_edit(call: types.CallbackQuery):
                                    reply_markup=nav.conf_menu)
 
 
-# Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
 @dp.callback_query_handler(lambda call: call.data not in ["btnConfYes", "btnConfNo"],
                            state=FormEdit.nickname, text_contains='btnConf')
 async def sub_step_1(call: types.CallbackQuery):
     """
-    Проверяем ответ, должно быть либо `Yes`, либо `No`.
+    Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
     """
     return await call.message.reply("Неверный ответ, варианты: `Yes`, `No`.", reply_markup=nav.conf_menu)
 
@@ -165,7 +175,7 @@ async def sub_step_1(call: types.CallbackQuery):
 @dp.callback_query_handler(state=FormEdit.nickname)
 async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
     """
-    Отрабатываем ответ
+    Отрабатываем ответ `button_handler_edit` после предварительной проверки на `sub_step_1`
     """
     if call.data == 'btnConfNo':
         await call.message.reply("Редактирование профиля отменено.", reply_markup=nav.artist_menu_in)
@@ -191,6 +201,9 @@ async def sub_step_3(message: types.Message):
 
 @dp.message_handler(state=FormEdit.nickname)
 async def last_step(message: types.Message, state: FSMContext):
+    """
+    После всех необходимых проверок и ответов пользователя записываем полученные данные в БД и завершаем разговор
+    """
     async with state.proxy() as data:
         text = message.text
         data['nickname'] = text
@@ -208,14 +221,17 @@ async def last_step(message: types.Message, state: FSMContext):
 
         # Закончить разговор
         await state.finish()
-# ************************************************************* end /button_handler_edit
-# ************************************************************* /button_handler_unsub
+# ************************************************************* END /button_handler_edit
 
 
+# ************************************************************* START /button_handler_unsub
 @dp.callback_query_handler(text_contains='btnConf')
 async def button_handler_unsub(call: types.CallbackQuery):
     """
-    Точка входа в разговор
+    Обрабатывает кнопку `Unsubscribe`.
+    Позволяет художнику отказаться роли художника и стать обычным пользователем
+
+    Здесь точка входа в разговор
     """
     await asyncio.sleep(0.5)
     await FormUnSub.artist.set()
@@ -227,12 +243,11 @@ async def button_handler_unsub(call: types.CallbackQuery):
                                    reply_markup=nav.conf_menu)
 
 
-# Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
 @dp.callback_query_handler(lambda call: call.data not in ["btnConfYes", "btnConfNo"],
                            state=FormUnSub.artist, text_contains='btnConf')
 async def sub_step_1(call: types.CallbackQuery):
     """
-    Проверяем ответ, должно быть либо `Yes`, либо `No`.
+    Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
     """
     return await call.message.reply("Неверный ответ, варианты: `Yes`, `No`.", reply_markup=nav.conf_menu)
 
@@ -240,7 +255,8 @@ async def sub_step_1(call: types.CallbackQuery):
 @dp.callback_query_handler(state=FormUnSub.artist)
 async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
     """
-    Отрабатываем ответ
+    Отрабатываем ответ `button_handler_unsub` после предварительной проверки на `sub_step_1`, затем записываем
+        полученные данные в БД, при необходимости, и завершаем разговор
     """
     async with state.proxy() as data:
         data['artist'] = 0
@@ -254,11 +270,14 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
         db.update_artist(data['artist'], call.from_user.id)
         db.update_nickname(data['nickname'], call.from_user.id)
         await state.finish()
-# ************************************************************* end /button_handler_unsub
+# ************************************************************* END /button_handler_unsub
 
 
 @dp.callback_query_handler(text_contains='btnIn')
 async def btnIn_handler(call: types.CallbackQuery):
+    """
+    Обрабатывает основные кнопки и перенаправляет на необходимые функции
+    """
     if call.data == 'btnInProfile':
         await profile(call)
     elif call.data == 'btnInSubscribe':
@@ -271,7 +290,15 @@ async def btnIn_handler(call: types.CallbackQuery):
 
 @dp.message_handler()
 async def echo(message: types.Message):
-    await message.reply("Ошибка ввода, попробуйте снова 🧐")
+    """
+    Эхо обработчик на случай, если пользователь введёт не то что нужно.
+    """
+    if [i for i in db.user_type(message.from_user.id)][0][0]:
+        await bot.send_message(message.from_user.id, "Ошибка ввода, попробуйте снова 🧐",
+                               reply_markup=nav.artist_menu_in)
+    else:
+        await bot.send_message(message.from_user.id, "Ошибка ввода, попробуйте снова 🧐",
+                               reply_markup=nav.user_menu_in)
 
 
 if __name__ == '__main__':
