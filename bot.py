@@ -37,31 +37,30 @@ async def start(message: types.Message):
     """
     if not db.user_exists(message.from_user.id):
         db.add_user(message.from_user.id)
-        await bot.send_message(message.from_user.id, "Стартуем! 🚀", reply_markup=nav.user_menu_in)
+        await bot.send_message(message.from_user.id, "Стартуем! 🚀", reply_markup=nav.menu)
     else:
-        if [i for i in db.user_type(message.from_user.id)][0][0]:
-            await bot.send_message(message.from_user.id, "Бот уже был запущен 🤖", reply_markup=nav.artist_menu_in)
-        else:
-            await bot.send_message(message.from_user.id, "Бот уже был запущен 🤖", reply_markup=nav.user_menu_in)
+        await bot.send_message(message.from_user.id, "Бот уже был запущен 🤖", reply_markup=nav.menu)
 
 
-# ************************************************************* START /profile
-@dp.message_handler(commands=['profile'])
-async def profile(message: types.Message):
-    """
-    Обрабатывает кнопку `Profile`. Отдаёт личные данные.
-        Пользователю: id, create_date.
-        Художнику: id, nickname, create_date
-    """
+# ************************************************************* START /menu
+@dp.message_handler(commands=['menu'])
+async def menu(message: types.Message):
     if message.message.chat.type == 'private':
-        result = db.get_user(message.from_user.id)
-        if [i for i in db.user_type(message.from_user.id)][0][0]:
-            text = f'Ваши учётные данные:\n\nid: {result[0][1]}\nnickname: {result[0][2]}\ndatetime sub: {result[0][4]}'
-            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_menu_in)
-        else:
-            text = f'Ваши учётные данные:\n\nid: {result[0][1]}\ndatetime sub: {result[0][4]}'
-            await bot.send_message(message.from_user.id, text, reply_markup=nav.user_menu_in)
-# ************************************************************* END /profile
+        message_data = message.data
+        db_list = db.get_user(message.from_user.id)[0]
+        if message_data == 'btnProfile':
+            if db_list[3]:
+                text = f'Ваши учётные данные:\n\nid: {db_list[1]}\nnickname: {db_list[2]}\ncreate date: {db_list[4]}'
+                await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_profile_menu)
+            else:
+                text = f'Ваши учётные данные:\n\nid: {db_list[1]}\ncreate date: {db_list[4]}'
+                await bot.send_message(message.from_user.id, text, reply_markup=nav.user_profile_menu)
+        elif message_data == 'btnRequests':
+            if db_list[3]:
+                await bot.send_message(message.from_user.id, 'Requests', reply_markup=nav.artist_requests_menu)
+            else:
+                await bot.send_message(message.from_user.id, 'Requests', reply_markup=nav.user_requests_menu)
+# ************************************************************* END /menu
 
 
 # ************************************************************* START /button_handler_sub
@@ -78,8 +77,8 @@ async def button_handler_sub(call: types.CallbackQuery):
 
     message_dict = call.message
     if message_dict.chat.type == 'private':
-        if [i for i in db.user_type(call.from_user.id)][0][0]:
-            await bot.send_message(call.from_user.id, 'Вы уже художник.', reply_markup=nav.artist_menu_in)
+        if db.user_type(call.from_user.id)[0][0]:
+            await bot.send_message(call.from_user.id, 'Вы уже художник.', reply_markup=nav.artist_profile_menu)
         else:
             await bot.send_message(call.from_user.id, 'Вы уверены, что хотите стать художником?',
                                    reply_markup=nav.conf_menu)
@@ -104,7 +103,7 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
 
     await FormSub.next()
     if call.data == 'btnConfNo':
-        await call.message.reply("Подписка отменена.", reply_markup=nav.user_menu_in)
+        await call.message.reply("Подписка отменена.", reply_markup=nav.user_profile_menu)
         await state.finish()
     else:
         await call.message.reply("Введите никнейм")
@@ -136,7 +135,7 @@ async def last_step(message: types.Message, state: FSMContext):
         # И отправить сообщение
         await bot.send_message(message.chat.id,
                                'Отлично! Теперь Вы художник и можете выполнять заказы от пользователей!',
-                               reply_markup=nav.artist_menu_in,
+                               reply_markup=nav.menu,
                                parse_mode=ParseMode.MARKDOWN)
         db.update_artist(data['artist'], message.from_user.id)
         db.update_nickname(data['nickname'], message.from_user.id)
@@ -161,7 +160,7 @@ async def button_handler_edit(call: types.CallbackQuery):
 
     message_dict = call.message
     if message_dict.chat.type == 'private':
-        if [i for i in db.user_type(call.from_user.id)][0][0]:
+        if db.user_type(call.from_user.id)[0][0]:
             await bot.send_message(call.from_user.id, 'Вы уверены, что хотите изменить `nickname`?',
                                    reply_markup=nav.conf_menu)
 
@@ -181,7 +180,7 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
     Отрабатываем ответ `button_handler_edit` после предварительной проверки на `sub_step_1`
     """
     if call.data == 'btnConfNo':
-        await call.message.reply("Редактирование профиля отменено.", reply_markup=nav.artist_menu_in)
+        await call.message.reply("Редактирование профиля отменено.", reply_markup=nav.artist_profile_menu)
         await state.finish()
     else:
         await call.message.reply("Введите новый никнейм")
@@ -217,7 +216,7 @@ async def last_step(message: types.Message, state: FSMContext):
                                    md.text(f'Отлично! `Nickname` изменён на: {data["nickname"]}'),
                                    sep='\n',
                                ),
-                               reply_markup=nav.artist_menu_in,
+                               reply_markup=nav.menu,
                                parse_mode=ParseMode.MARKDOWN)
         db.update_nickname(data['nickname'], message.from_user.id)
         await asyncio.sleep(0.5)
@@ -241,7 +240,7 @@ async def button_handler_unsub(call: types.CallbackQuery):
 
     message_dict = call.message
     if message_dict.chat.type == 'private':
-        if [i for i in db.user_type(call.from_user.id)][0][0]:
+        if db.user_type(call.from_user.id)[0][0]:
             await bot.send_message(call.from_user.id, 'Вы уверены, что хотите отменить подписку?',
                                    reply_markup=nav.conf_menu)
 
@@ -266,10 +265,10 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
         data['nickname'] = ''
 
     if call.data == 'btnConfNo':
-        await call.message.reply("Отписка отменена.", reply_markup=nav.artist_menu_in)
+        await call.message.reply("Отписка отменена.", reply_markup=nav.artist_profile_menu)
         await state.finish()
     else:
-        await call.message.reply("Подписка отменена.", reply_markup=nav.user_menu_in)
+        await call.message.reply("Подписка отменена.", reply_markup=nav.user_profile_menu)
         db.update_artist(data['artist'], call.from_user.id)
         db.update_nickname(data['nickname'], call.from_user.id)
         await state.finish()
@@ -290,7 +289,7 @@ async def button_handler_send_request(call: types.CallbackQuery):
 
     message_dict = call.message
     if message_dict.chat.type == 'private':
-        if [i for i in db.user_type(call.from_user.id)][0][0]:
+        if db.user_type(call.from_user.id)[0][0]:
             await bot.send_message(call.from_user.id,
                                    'Вы действительно хотите запросить у других художников картину?',
                                    reply_markup=nav.conf_menu)
@@ -315,12 +314,12 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
     Отрабатываем ответ `button_handler_send_request` после предварительной проверки на `sub_step_1`
     """
     if call.data == 'btnConfNo':
-        if [i for i in db.user_type(call.from_user.id)][0][0]:
+        if db.user_type(call.from_user.id)[0][0]:
             # ответ художнику
-            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.artist_menu_in)
+            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.artist_requests_menu)
         else:
             # ответ пользователю
-            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.user_menu_in)
+            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.user_requests_menu)
         await state.finish()
     else:
         await call.message.reply("Введите описание картины")
@@ -345,20 +344,20 @@ async def last_step(message: types.Message, state: FSMContext):
 
         # И отправить сообщение
         bot_answer = f'Отлично! Ваш запрос отправлен художникам.'
-        type_user = [i for i in db.user_type(message.chat.id)][0][0]
+        type_user = db.user_type(message.chat.id)[0][0]
         if type_user:
-            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.artist_menu_in,
+            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.artist_requests_menu,
                                    parse_mode=ParseMode.MARKDOWN)
 
             # отправляем всем художникам созданный пользователем/художником запрос на картину
             db_list = db.show_artists()
             bot_answer = f'От пользователя: {message.chat.id}\nОписания запроса: `{text}`'
-            [await bot.send_message(i, bot_answer, reply_markup=nav.request_menu_in_not_accept) for i in db_list]
+            [await bot.send_message(i, bot_answer, reply_markup=nav.not_accepted_request) for i in db_list]
         else:
-            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.user_menu_in,
+            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.user_requests_menu,
                                    parse_mode=ParseMode.MARKDOWN)
-        db.add_request(data['text'], message.from_user.id)
 
+        db.add_request(data['text'], message.from_user.id)
         await asyncio.sleep(0.5)
         # Закончить разговор
         await state.finish()
@@ -369,37 +368,60 @@ async def last_step(message: types.Message, state: FSMContext):
 @dp.message_handler(commands=['requests'])
 async def show_requests(message: types.Message):
     if message.message.chat.type == 'private':
-        if message.data == 'btnInShowRequests':
+        message_data = message.data
+        if message_data == 'btnShowFreeRequests':
             quantity = 3
 
             # перебираем выгрузку с БД от `show_requests` и отсеиваем выполненные/закрытые запросы
             result = [i for i in db.show_requests() if i[3] != 'closed' and i[3] != 'completed'][-quantity:]
 
-            for i in range(quantity):
-                text = f'id request: {result[i][0]}\n' \
-                       f'user id: {result[i][1]}\n' \
-                       f'text request: {result[i][2]}\n' \
-                       f'date: {result[i][5]}'
-                if result[i][3] == 'not accepted':
-                    await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_not_accept)
-                if result[i][3] == 'accepted':
-                    await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
-        elif message.data == 'btnInShowAcceptedRequests':
-            quantity = 3
-
-            # то же самое действие, что и выше в `if`
-            result = [i for i in db.show_accepted_request(message.from_user.id) if i[3] != 'closed' and i[3] != 'completed'][-quantity:]
             if len(result):
                 for i in range(len(result)):
                     text = f'id request: {result[i][0]}\n' \
                            f'user id: {result[i][1]}\n' \
                            f'text request: {result[i][2]}\n' \
                            f'date: {result[i][5]}'
-                    if result[i][3] != 'completed' and result[i][3] != 'closed':
-                        await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
+                    if result[i][3] == 'not accepted':
+                        await bot.send_message(message.from_user.id, text, reply_markup=nav.not_accepted_request)
+                    if result[i][3] == 'accepted':
+                        await bot.send_message(message.from_user.id, text, reply_markup=nav.accepted_request)
+            else:
+                await bot.send_message(message.from_user.id, 'Нет свободных запросов',
+                                       reply_markup=nav.back_artist_requests)
+
+        elif message_data == 'btnShowAcceptedRequests':
+            quantity = 3
+
+            # то же самое действие, что и выше в `if`
+            db_list = db.show_accepted_request(message.from_user.id)
+            result = [i for i in db_list if i[3] != 'closed' and i[3] != 'completed'][-quantity:]
+            if len(result):
+                for i in range(len(result)):
+                    text = f'id request: {result[i][0]}\nuser id: {result[i][1]}\n' \
+                           f'text request: {result[i][2]}\ndate: {result[i][5]}'
+                    await bot.send_message(message.from_user.id, text, reply_markup=nav.accepted_request)
             else:
                 await bot.send_message(message.from_user.id, 'Вы не приняли ни одного запроса',
-                                       reply_markup=nav.request_menu_in_accepted)
+                                       reply_markup=nav.back_artist_requests)
+
+        elif message_data == 'btnShowMyRequests':
+            # то же самое действие, что и выше в `if`
+            db_list = db.show_my_requests(message.from_user.id)
+            result = [i for i in db_list if i[3] != 'closed' and i[3] != 'completed']
+
+            if len(result):
+                for i in range(len(result)):
+                    text = f'id request: {result[i][0]}\nuser id: {message.from_user.id}\ntext request: {result[i][2]}\n' \
+                           f'status: {result[i][3]}\nupdate date: {result[i][4]}\ncreate date: {result[i][5]}'
+                    await bot.send_message(message.from_user.id, text, reply_markup=nav.accepted_request)
+            else:
+                if db.get_user(message.from_user.id)[0][3]:
+                    await bot.send_message(message.from_user.id, 'Нет открытых запросов',
+                                           reply_markup=nav.back_artist_requests)
+                else:
+                    await bot.send_message(message.from_user.id, 'Нет открытых запросов',
+                                           reply_markup=nav.back_user_requests)
+
 # ************************************************************* END /show_requests
 
 
@@ -407,51 +429,65 @@ async def show_requests(message: types.Message):
 @dp.message_handler(commands=['requests'])
 async def update_request(message: types.Message):
     if message.message.chat.type == 'private':
+        message_data = message.data
         request_text = message.message.text[12:]
+
+        user_id = message.message.chat.id
         request_id = request_text[:(request_text.find("u")) - 1]
-        if message.data == 'btnInAccept':
+
+        if message_data == 'btnAccept':
             text = 'Вы приняли в работу запрос пользователя'
-            db.update_request(message.message.chat.id, 'accepted', request_id)
-            await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
-        elif message.data == 'btnInClose':
-            text = 'Вы закрыли запрос пользователя'
-            db.update_request(message.message.chat.id, 'closed', request_id)
-            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_menu_in)
-        elif message.data == 'btnInCompleted':
-            text = 'Вы успешно завершили запрос пользователя'
-            db.update_request(message.message.chat.id, 'completed', request_id)
-            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_menu_in)
+            db.update_request(user_id, 'accepted', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.accepted_request)
+        elif message_data == 'btnClose':
+            text = 'Вы закрыли запрос'
+            db.update_request(user_id, 'closed', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_requests_menu)
+        elif message_data == 'btnCompleted':
+            text = 'Вы успешно завершили запрос'
+            db.update_request(user_id, 'completed', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_requests_menu)
 # ************************************************************* END /update_request
 
 
-# ************************************************************* START /update_request
+# ************************************************************* START /back
 @dp.message_handler(commands=['back'])
 async def back(message: types.Message):
     if message.message.chat.type == 'private':
-        await bot.send_message(message.from_user.id, 'Menu', reply_markup=nav.artist_menu_in)
-# ************************************************************* END /update_request
+        message_data = message.data
+        if message_data == 'btnBack':
+            await bot.send_message(message.from_user.id, 'Menu', reply_markup=nav.menu)
+        elif message_data == 'btnBackUserRequests':
+            await bot.send_message(message.from_user.id, 'Requests', reply_markup=nav.user_requests_menu)
+        elif message_data == 'btnBackArtistRequests':
+            await bot.send_message(message.from_user.id, 'Requests', reply_markup=nav.artist_requests_menu)
+# ************************************************************* END /back
 
 
-@dp.callback_query_handler(text_contains='btnIn')
+@dp.callback_query_handler(text_contains='btn')
 async def btnIn_handler(call: types.CallbackQuery):
     """
     Обрабатывает основные кнопки и перенаправляет на необходимые функции
     """
-    if call.data == 'btnInProfile':
-        await profile(call)
-    elif call.data == 'btnInSubscribe':
+
+    if call.data == 'btnProfile':
+        await menu(call)
+    elif call.data == 'btnRequests':
+        await menu(call)
+    elif call.data == 'btnSubscribe':
         await button_handler_sub(call)
-    elif call.data == 'btnInEditProfile':
+    elif call.data == 'btnEditProfile':
         await button_handler_edit(call)
-    elif call.data == 'btnInUnSubscribe':
+    elif call.data == 'btnUnSubscribe':
         await button_handler_unsub(call)
-    elif call.data == 'btnInSendRequest':
+    elif call.data == 'btnSendRequest':
         await button_handler_send_request(call)
-    elif call.data == 'btnInShowRequests' or call.data == 'btnInShowAcceptedRequests':
+    elif call.data == 'btnShowFreeRequests' or call.data == 'btnShowAcceptedRequests' \
+            or call.data == 'btnShowMyRequests':
         await show_requests(call)
-    elif call.data == 'btnInAccept' or call.data == 'btnInCompleted' or call.data == 'btnInClose':
+    elif call.data == 'btnAccept' or call.data == 'btnCompleted' or call.data == 'btnClose':
         await update_request(call)
-    elif call.data == 'btnInBack':
+    elif call.data == 'btnBack' or call.data == 'btnBackUserRequests' or call.data == 'btnBackArtistRequests':
         await back(call)
 
 
@@ -460,12 +496,7 @@ async def echo(message: types.Message):
     """
     Эхо обработчик на случай, если пользователь введёт не то что нужно.
     """
-    if [i for i in db.user_type(message.from_user.id)][0][0]:
-        await bot.send_message(message.from_user.id, "Ошибка ввода, попробуйте снова 🧐",
-                               reply_markup=nav.artist_menu_in)
-    else:
-        await bot.send_message(message.from_user.id, "Ошибка ввода, попробуйте снова 🧐",
-                               reply_markup=nav.user_menu_in)
+    await bot.send_message(message.from_user.id, "Ошибка ввода, попробуйте снова 🧐", reply_markup=nav.menu)
 
 
 if __name__ == '__main__':

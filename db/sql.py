@@ -22,7 +22,8 @@ class Database:
 
     def user_type(self, user_id):
         with self.connection:
-            return self.cursor.execute("SELECT `artist` FROM `users` WHERE `user_id` = ?", (user_id,))
+            request_sql = self.cursor.execute("SELECT `artist` FROM `users` WHERE `user_id` = ?", (user_id,))
+            return [i for i in request_sql]
 
     def get_user(self, user_id):
         with self.connection:
@@ -60,6 +61,13 @@ class Database:
         with self.connection:
             db_list = self.cursor.execute("SELECT `id`, `user_id`, `text`, `status`, `update_date`, `create_date`"
                                           "FROM `requests`")
+            result = [i for i in db_list]
+            return result
+
+    def show_my_requests(self, my_id):
+        with self.connection:
+            db_list = self.cursor.execute("SELECT `id`, `user_id`, `text`, `status`, `update_date`, `create_date`"
+                                          "FROM `requests` WHERE `user_id` = ?", (my_id,))
             result = [i for i in db_list]
             return result
 

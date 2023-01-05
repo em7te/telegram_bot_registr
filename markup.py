@@ -1,22 +1,42 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-user_menu_in = InlineKeyboardMarkup(row_width=1)
-btnInProfile = InlineKeyboardButton(text="Profile 👤", callback_data='btnInProfile')
-btnInSubscribe = InlineKeyboardButton(text="Subscribe 🧑‍🎨", callback_data='btnInSubscribe')
-btnInSendRequest = InlineKeyboardButton(text="Send request 🖼", callback_data='btnInSendRequest')
-btnInBack = InlineKeyboardButton(text="Back", callback_data='btnInBack')
-user_menu_in.add(btnInProfile, btnInSubscribe, btnInSendRequest)
+menu = InlineKeyboardMarkup(row_width=1)
+btnProfile = InlineKeyboardButton(text="Profile 👤", callback_data='btnProfile')
+btnRequests = InlineKeyboardButton(text="Requests 🗄", callback_data='btnRequests')
+menu.add(btnProfile, btnRequests)
 
 
-artist_menu_in = InlineKeyboardMarkup(row_width=1)
-btnInEditProfile = InlineKeyboardButton(text="Edit profile ✍️", callback_data='btnInEditProfile')
-btnInUnSubscribe = InlineKeyboardButton(text="Unsubscribe 😶‍🌫️", callback_data='btnInUnSubscribe')
-btnInShowRequests = InlineKeyboardButton(text="Show requests 🗄", callback_data='btnInShowRequests')
-btnInShowAcceptedRequests = InlineKeyboardButton(text="Show accepted requests 🗄",
-                                                 callback_data='btnInShowAcceptedRequests')
-artist_menu_in.add(btnInProfile, btnInEditProfile, btnInUnSubscribe, btnInShowRequests, btnInShowAcceptedRequests,
-                   btnInSendRequest)
+btnBack = InlineKeyboardButton(text="Back", callback_data='btnBack')
+
+back_user_requests = InlineKeyboardMarkup(row_width=1)
+btnBackUserRequests = InlineKeyboardButton(text="Back", callback_data='btnBackUserRequests')
+back_user_requests.add(btnBackUserRequests)
+
+back_artist_requests = InlineKeyboardMarkup(row_width=1)
+btnBackArtistRequests = InlineKeyboardButton(text="Back", callback_data='btnBackArtistRequests')
+back_artist_requests.add(btnBackArtistRequests)
+
+
+user_profile_menu = InlineKeyboardMarkup(row_width=1)
+btnSubscribe = InlineKeyboardButton(text="Subscribe 🧑‍🎨", callback_data='btnSubscribe')
+user_profile_menu.add(btnSubscribe, btnBack)
+
+user_requests_menu = InlineKeyboardMarkup(row_width=1)
+btnShowMyRequests = InlineKeyboardButton(text="Show my requests 🗃", callback_data='btnShowMyRequests')
+btnSendRequest = InlineKeyboardButton(text="Send request 🖼", callback_data='btnSendRequest')
+user_requests_menu.add(btnShowMyRequests, btnSendRequest, btnBack)
+
+
+artist_profile_menu = InlineKeyboardMarkup(row_width=1)
+btnEditProfile = InlineKeyboardButton(text="Edit profile ✍️", callback_data='btnEditProfile')
+btnUnSubscribe = InlineKeyboardButton(text="Unsubscribe 😶‍🌫️", callback_data='btnUnSubscribe')
+artist_profile_menu.add(btnEditProfile, btnUnSubscribe, btnBack)
+
+artist_requests_menu = InlineKeyboardMarkup(row_width=1)
+btnShowFreeRequests = InlineKeyboardButton(text="Show free requests 🗄", callback_data='btnShowFreeRequests')
+btnShowAcceptedRequests = InlineKeyboardButton(text="Show accepted requests 📇", callback_data='btnShowAcceptedRequests')
+artist_requests_menu.add(btnShowFreeRequests, btnShowAcceptedRequests, btnShowMyRequests, btnSendRequest, btnBack)
 
 
 conf_menu = InlineKeyboardMarkup(row_width=2)
@@ -25,15 +45,11 @@ btnConfNo = InlineKeyboardButton(text="No", callback_data='btnConfNo')
 conf_menu.add(btnConfYes, btnConfNo)
 
 
-request_menu_in_not_accept = InlineKeyboardMarkup(row_width=2)
-btnInAccept = InlineKeyboardButton(text="Accept", callback_data='btnInAccept')
-btnInClose = InlineKeyboardButton(text="Close", callback_data='btnInClose')
-request_menu_in_not_accept.add(btnInAccept, btnInClose, btnInBack)
+not_accepted_request = InlineKeyboardMarkup(row_width=2)
+btnAccept = InlineKeyboardButton(text="Accept", callback_data='btnAccept')
+btnClose = InlineKeyboardButton(text="Close", callback_data='btnClose')
+not_accepted_request.add(btnAccept, btnClose)
 
-request_menu_in_accepted = InlineKeyboardMarkup(row_width=2)
-btnInCompleted = InlineKeyboardButton(text="Completed", callback_data='btnInCompleted')
-request_menu_in_accepted.add(btnInCompleted, btnInClose, btnInBack)
-
-
-
-
+accepted_request = InlineKeyboardMarkup(row_width=2)
+btnCompleted = InlineKeyboardButton(text="Completed", callback_data='btnCompleted')
+accepted_request.add(btnCompleted, btnClose)
