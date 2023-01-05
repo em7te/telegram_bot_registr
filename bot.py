@@ -10,7 +10,8 @@ from aiogram.types import ParseMode
 
 from credlib import API_TOKEN
 import markup as nav
-from db.sql import Database, FormSub, FormEdit, FormUnSub
+from db.sql import Database
+from forms import FormSub, FormEdit, FormUnSub, FormSendReq
 
 
 # Настройка ведения журнала
@@ -273,6 +274,95 @@ async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
 # ************************************************************* END /button_handler_unsub
 
 
+# ************************************************************* START /send_request
+@dp.callback_query_handler(text_contains='btnConf')
+async def button_handler_send_request(call: types.CallbackQuery):
+    """
+    Обрабатывает кнопку `Send request`.
+        С её помощью пользователь/художник может запрашивать у художников картину по описанию.
+
+    Здесь точка входа в разговор
+    """
+    await asyncio.sleep(0.5)
+    await FormSendReq.text.set()
+
+    message_dict = call.message
+    if message_dict.chat.type == 'private':
+        if [i for i in db.user_type(call.from_user.id)][0][0]:
+            await bot.send_message(call.from_user.id,
+                                   'Вы действительно хотите запросить у других художников картину?',
+                                   reply_markup=nav.conf_menu)
+        else:
+            await bot.send_message(call.from_user.id,
+                                   'Вы действительно хотите запросить у художников картину?',
+                                   reply_markup=nav.conf_menu)
+
+
+@dp.callback_query_handler(lambda call: call.data not in ["btnConfYes", "btnConfNo"],
+                           state=FormSendReq.text, text_contains='btnConf')
+async def sub_step_1(call: types.CallbackQuery):
+    """
+    Проверяем ответ. Должен быть один из вариантов: Yes или No (внутренние названия ["btnConfYes", "btnConfNo"])
+    """
+    return await call.message.reply("Неверный ответ, варианты: `Yes`, `No`.", reply_markup=nav.conf_menu)
+
+
+@dp.callback_query_handler(state=FormSendReq.text)
+async def sub_step_2(call: types.CallbackQuery, state: FSMContext):
+    """
+    Отрабатываем ответ `button_handler_send_request` после предварительной проверки на `sub_step_1`
+    """
+    if call.data == 'btnConfNo':
+        if [i for i in db.user_type(call.from_user.id)][0][0]:
+            # ответ художнику
+            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.artist_menu_in)
+        else:
+            # ответ пользователю
+            await bot.send_message(call.from_user.id, 'Запрос картины отменён.', reply_markup=nav.user_menu_in)
+        await state.finish()
+    else:
+        await call.message.reply("Введите описание картины")
+
+
+@dp.message_handler(lambda message: 3 > len(message.text) > 15, state=FormSendReq.text)
+async def sub_step_3(message: types.Message):
+    """
+    Если введён неверный формат
+    """
+    return await message.reply("Неверный формат. Введите текст от 3 до 15 символов.")
+
+
+@dp.message_handler(state=FormSendReq.text)
+async def last_step(message: types.Message, state: FSMContext):
+    """
+    После всех необходимых проверок и ответов пользователя записываем полученные данные в БД и завершаем разговор
+    """
+    async with state.proxy() as data:
+        text = message.text
+        data['text'] = text
+
+        # И отправить сообщение
+        bot_answer = f'Отлично! Ваш запрос отправлен художникам.'
+        type_user = [i for i in db.user_type(message.chat.id)][0][0]
+        if type_user:
+            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.artist_menu_in,
+                                   parse_mode=ParseMode.MARKDOWN)
+        else:
+            await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.user_menu_in,
+                                   parse_mode=ParseMode.MARKDOWN)
+        db.add_request(data['text'], message.from_user.id)
+        await asyncio.sleep(0.5)
+
+        db_list = db.all_artists()
+        bot_answer = f'От пользователя: {message.chat.id}\nОписания запроса: `{text}`'
+        [await bot.send_message(i, bot_answer) for i in db_list]
+
+        await asyncio.sleep(0.5)
+        # Закончить разговор
+        await state.finish()
+# ************************************************************* END /send_request
+
+
 @dp.callback_query_handler(text_contains='btnIn')
 async def btnIn_handler(call: types.CallbackQuery):
     """
@@ -286,6 +376,8 @@ async def btnIn_handler(call: types.CallbackQuery):
         await button_handler_edit(call)
     elif call.data == 'btnInUnSubscribe':
         await button_handler_unsub(call)
+    elif call.data == 'btnInSendRequest':
+        await button_handler_send_request(call)
 
 
 @dp.message_handler()

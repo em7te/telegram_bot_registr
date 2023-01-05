@@ -18,12 +18,14 @@ sql_request.execute(
 
 sql_request.execute(
     """
-        CREATE TABLE IF NOT EXISTS request(
+        CREATE TABLE IF NOT EXISTS requests(
+            id INTEGER,
             user_id INTEGER NOT NULL,
             text TEXT NOT NULL,
             artist_id INTEGER,
             status TEXT NOT NULL,
             update_date TEXT NOT NULL,
-            create_date TEXT NOT NULL
+            create_date TEXT NOT NULL,
+            PRIMARY KEY("id" AUTOINCREMENT)
         );
 """)
