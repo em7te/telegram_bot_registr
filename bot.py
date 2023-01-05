@@ -13,6 +13,8 @@ import markup as nav
 from db.sql import Database
 from forms import FormSub, FormEdit, FormUnSub, FormSendReq
 
+from pprint import pprint
+
 
 # Настройка ведения журнала
 logging.basicConfig(level=logging.INFO)
@@ -347,20 +349,87 @@ async def last_step(message: types.Message, state: FSMContext):
         if type_user:
             await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.artist_menu_in,
                                    parse_mode=ParseMode.MARKDOWN)
+
+            # отправляем всем художникам созданный пользователем/художником запрос на картину
+            db_list = db.show_artists()
+            bot_answer = f'От пользователя: {message.chat.id}\nОписания запроса: `{text}`'
+            [await bot.send_message(i, bot_answer, reply_markup=nav.request_menu_in_not_accept) for i in db_list]
         else:
             await bot.send_message(message.chat.id, bot_answer, reply_markup=nav.user_menu_in,
                                    parse_mode=ParseMode.MARKDOWN)
         db.add_request(data['text'], message.from_user.id)
-        await asyncio.sleep(0.5)
-
-        db_list = db.all_artists()
-        bot_answer = f'От пользователя: {message.chat.id}\nОписания запроса: `{text}`'
-        [await bot.send_message(i, bot_answer) for i in db_list]
 
         await asyncio.sleep(0.5)
         # Закончить разговор
         await state.finish()
 # ************************************************************* END /send_request
+
+
+# ************************************************************* START /show_requests
+@dp.message_handler(commands=['requests'])
+async def show_requests(message: types.Message):
+    if message.message.chat.type == 'private':
+        if message.data == 'btnInShowRequests':
+            quantity = 3
+
+            # перебираем выгрузку с БД от `show_requests` и отсеиваем выполненные/закрытые запросы
+            result = [i for i in db.show_requests() if i[3] != 'closed' and i[3] != 'completed'][-quantity:]
+
+            for i in range(quantity):
+                text = f'id request: {result[i][0]}\n' \
+                       f'user id: {result[i][1]}\n' \
+                       f'text request: {result[i][2]}\n' \
+                       f'date: {result[i][5]}'
+                if result[i][3] == 'not accepted':
+                    await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_not_accept)
+                if result[i][3] == 'accepted':
+                    await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
+        elif message.data == 'btnInShowAcceptedRequests':
+            quantity = 3
+
+            # то же самое действие, что и выше в `if`
+            result = [i for i in db.show_accepted_request(message.from_user.id) if i[3] != 'closed' and i[3] != 'completed'][-quantity:]
+            if len(result):
+                for i in range(len(result)):
+                    text = f'id request: {result[i][0]}\n' \
+                           f'user id: {result[i][1]}\n' \
+                           f'text request: {result[i][2]}\n' \
+                           f'date: {result[i][5]}'
+                    if result[i][3] != 'completed' and result[i][3] != 'closed':
+                        await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
+            else:
+                await bot.send_message(message.from_user.id, 'Вы не приняли ни одного запроса',
+                                       reply_markup=nav.request_menu_in_accepted)
+# ************************************************************* END /show_requests
+
+
+# ************************************************************* START /update_request
+@dp.message_handler(commands=['requests'])
+async def update_request(message: types.Message):
+    if message.message.chat.type == 'private':
+        request_text = message.message.text[12:]
+        request_id = request_text[:(request_text.find("u")) - 1]
+        if message.data == 'btnInAccept':
+            text = 'Вы приняли в работу запрос пользователя'
+            db.update_request(message.message.chat.id, 'accepted', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.request_menu_in_accepted)
+        elif message.data == 'btnInClose':
+            text = 'Вы закрыли запрос пользователя'
+            db.update_request(message.message.chat.id, 'closed', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_menu_in)
+        elif message.data == 'btnInCompleted':
+            text = 'Вы успешно завершили запрос пользователя'
+            db.update_request(message.message.chat.id, 'completed', request_id)
+            await bot.send_message(message.from_user.id, text, reply_markup=nav.artist_menu_in)
+# ************************************************************* END /update_request
+
+
+# ************************************************************* START /update_request
+@dp.message_handler(commands=['back'])
+async def back(message: types.Message):
+    if message.message.chat.type == 'private':
+        await bot.send_message(message.from_user.id, 'Menu', reply_markup=nav.artist_menu_in)
+# ************************************************************* END /update_request
 
 
 @dp.callback_query_handler(text_contains='btnIn')
@@ -378,6 +447,12 @@ async def btnIn_handler(call: types.CallbackQuery):
         await button_handler_unsub(call)
     elif call.data == 'btnInSendRequest':
         await button_handler_send_request(call)
+    elif call.data == 'btnInShowRequests' or call.data == 'btnInShowAcceptedRequests':
+        await show_requests(call)
+    elif call.data == 'btnInAccept' or call.data == 'btnInCompleted' or call.data == 'btnInClose':
+        await update_request(call)
+    elif call.data == 'btnInBack':
+        await back(call)
 
 
 @dp.message_handler()
