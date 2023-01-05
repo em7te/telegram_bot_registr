@@ -28,7 +28,7 @@ btnSendRequest = InlineKeyboardButton(text="Send request 🖼", callback_data='b
 user_requests_menu.add(btnShowMyRequests, btnSendRequest, btnBack)
 
 
-artist_profile_menu = InlineKeyboardMarkup(row_width=1)
+artist_profile_menu = InlineKeyboardMarkup(row_width=2)
 btnEditProfile = InlineKeyboardButton(text="Edit profile ✍️", callback_data='btnEditProfile')
 btnUnSubscribe = InlineKeyboardButton(text="Unsubscribe 😶‍🌫️", callback_data='btnUnSubscribe')
 artist_profile_menu.add(btnEditProfile, btnUnSubscribe, btnBack)
